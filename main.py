@@ -4,6 +4,7 @@ import streamlit as st
 from st_aggrid import AgGrid, DataReturnMode, GridUpdateMode, GridOptionsBuilder
 
 st.set_page_config(layout="wide")
+POPULATION_LABELS = ['Very small', 'Small', 'Medium', 'Large', 'Very Large', 'Extra Large']
 
 
 def plotly_figure(df_data, column, countries, title=''):
@@ -49,13 +50,22 @@ def load_data():
     df = pd.read_csv(URL)
     df['Active_new_week'] = df.groupby('location')['new_cases'].transform(lambda x: x.rolling(window=7).sum().fillna(0))
     df['Incident_rate'] = (df.Active_new_week / df.population * 100000).fillna(0).astype(int)
-
+    population_bins = [0, 1e6, 1e7, 5e7, 1e8, 1e9, 2e10]
+    df['country_size'] = pd.cut(df['population'], bins=population_bins, labels=POPULATION_LABELS)
     df.fillna({'Incident_rate': 0}, inplace=True)
     df['date'] = pd.to_datetime(df['date'])
     return df
 
 
+# Sidebar
+st.sidebar.title("Filter options")
+# selected_sizes = {}
+# for i in POPULATION_LABELS:
+#     selected_sizes[i] = st.sidebar.checkbox(i, value=True)
+
 df = load_data()
+
+
 df_world = df[df['continent'].isna() == True].copy()
 continents = list(df[df['continent'].isna() == True].location.unique())
 df = df[df['continent'].isna() == False].copy()
@@ -65,8 +75,7 @@ all_countries = sorted(set(df.location))
 df_latest = df[df.date == df.date.max()].copy()
 df_latest['week_incidence_rank'] = df_latest['Incident_rate'].rank()
 
-# Sidebar
-st.sidebar.title("Filter options")
+
 analysis_types = {'new_cases': "New Cases",
                   'Incident_rate': "Weekly Incident Rate",
                   'total_cases': "Total Cases",
