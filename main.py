@@ -5,12 +5,8 @@ import streamlit as st
 st.set_page_config(layout="wide")
 
 
-def plotly_figure(df_data, column, countries):
-    # long_df = px.data.medals_long()
-    # fig = px.bar(long_df, x="nation", y="count", color="medal", title="Long-Form Input")
-
+def plotly_figure(df_data, column, countries, title=''):
     selected_country_ids = [i for i, e in enumerate(df_data.location) if e in countries]
-
     colors = ['#FF0000' if i in selected_country_ids else '#0074D9'
               for i in range(len(df_data))]
     fig = dict({
@@ -26,12 +22,15 @@ def plotly_figure(df_data, column, countries):
             "xaxis": {"automargin": True},
             "yaxis": {
                 "automargin": True,
-                "title": {"text": column}
-            },
+                "title": {"text": ""},
+    },
             "height": 250,
-            "margin": {"t": 10, "l": 10, "r": 10},
-        },
-    })
+            "margin": {"t": 30, "l": 10, "r": 10},
+            "title": {"text": title,},
+            'font': {
+                # 'family': "Source Sans Pro",
+                'size': 16, }
+        }})
     return fig
 
 
@@ -70,8 +69,8 @@ df_latest['week_incidence_rank'] = df_latest['weekly_incidence_per_100k_pop'].ra
 st.sidebar.title("Filter options")
 
 analysis_type = st.sidebar.selectbox('Sort by',
-                                     ['new_cases', 'weekly_incidence_per_100k_pop', 'total_cases',
-                                      'total_vaccinations', 'icu_patients', 'population'],
+                                     sorted(['new_cases', 'weekly_incidence_per_100k_pop', 'total_cases',
+                                      'total_vaccinations', 'icu_patients', 'population', 'total_deaths', 'new_deaths_smoothed']),
                                      index=0)
 records_number = st.sidebar.selectbox('Show data', ['All', '10', '25', '50', '100'], index=2)
 show_data = st.sidebar.checkbox("Show raw data")
@@ -111,10 +110,27 @@ st.subheader("3. Development of Cases")
 countries = st.multiselect("Select countries", all_countries,
                            ['Singapore', 'Germany', 'United States', 'United Kingdom'])
 colA, colB = st.columns([6, 4])
+
 if countries:
     dff = df[df.location.isin(countries)]
-    fig = px.line(dff, x='date', y='weekly_incidence_per_100k_pop', color='location')
+    fig = px.line(dff, x='date', y='weekly_incidence_per_100k_pop', color='location', title="Weekly incident rate")
     fig.update_traces(line=dict(width=1))
+    # fig.update_layout(showlegend=False)
+    fig.update_layout(
+        legend=dict(
+            yanchor="top",
+            y=0.99,
+            xanchor="left",
+            x=0.01,
+        ),
+        title=dict(
+            font=dict(
+                family="Source Sans Pro",
+                size=24,
+            ))
+    )
+
+    fig.update_yaxes(visible=False)
     colA.plotly_chart(fig, use_container_width=True)
     colB.write('#### Country Incident Rate and Ranking')
     colB.dataframe(
@@ -127,14 +143,18 @@ if countries:
     # st.plotly_chart(px.bar(df_latest, x='location', y=analysis_type), use_container_width=True)
     # Test
     col1, col2 = st.columns(2)
-    col1.plotly_chart(plotly_figure(df_latest, 'new_cases', countries), use_container_width=True)
-    col2.plotly_chart(plotly_figure(df_latest, 'weekly_incidence_per_100k_pop', countries), use_container_width=True)
+    col1.plotly_chart(plotly_figure(df_latest, 'new_cases', countries, "New Cases"), use_container_width=True)
+    col2.plotly_chart(plotly_figure(df_latest, 'weekly_incidence_per_100k_pop', countries, "Weekly Incident Rate"),
+                      use_container_width=True)
     col1, col2 = st.columns(2)
-    col1.plotly_chart(plotly_figure(df_latest, 'total_cases', countries), use_container_width=True)
-    col2.plotly_chart(plotly_figure(df_latest, 'total_vaccinations', countries), use_container_width=True)
+    col1.plotly_chart(plotly_figure(df_latest, 'total_cases', countries, "Total Cases"), use_container_width=True)
+    col2.plotly_chart(plotly_figure(df_latest, 'total_vaccinations', countries, "Total Vaccinations"), use_container_width=True)
     col1, col2 = st.columns(2)
-    col1.plotly_chart(plotly_figure(df_latest, 'icu_patients', countries), use_container_width=True)
-    col2.plotly_chart(plotly_figure(df_latest, 'population', countries), use_container_width=True)
+    col1.plotly_chart(plotly_figure(df_latest, 'icu_patients', countries, "ICU Patients"), use_container_width=True)
+    col2.plotly_chart(plotly_figure(df_latest, 'population', countries, "Population"), use_container_width=True)
+    col1, col2 = st.columns(2)
+    col1.plotly_chart(plotly_figure(df_latest, 'new_deaths_smoothed', countries, "New Deaths"), use_container_width=True)
+    col2.plotly_chart(plotly_figure(df_latest, 'total_deaths', countries, "Total Deaths"), use_container_width=True)
 
 st.write('***')
 if show_data:
