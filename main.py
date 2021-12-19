@@ -71,8 +71,8 @@ st.sidebar.title("Filter options")
 analysis_type = st.sidebar.selectbox('Sort by',
                                      sorted(['new_cases', 'weekly_incidence_per_100k_pop', 'total_cases',
                                       'total_vaccinations', 'icu_patients', 'population', 'total_deaths', 'new_deaths_smoothed']),
-                                     index=0)
-records_number = st.sidebar.selectbox('Show data', ['All', '10', '25', '50', '100'], index=2)
+                                     index=1)
+records_number = st.sidebar.selectbox('Show data', ['All', '10', '25', '50', '100'], index=1)
 show_data = st.sidebar.checkbox("Show raw data")
 st.sidebar.text(f'Data last updated {last_update}')
 
