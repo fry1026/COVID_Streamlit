@@ -4,7 +4,9 @@ import streamlit as st
 from st_aggrid import AgGrid, DataReturnMode, GridUpdateMode, GridOptionsBuilder
 
 st.set_page_config(layout="wide")
-POPULATION_LABELS = ['Very small', 'Small', 'Medium', 'Large', 'Very Large', 'Extra Large']
+POPULATION_LABELS = {'Very small': '<1M', 'Small': '1M-10M', 'Medium': '10M-50M', 'Large': '50M-100M',
+                     'Very Large': '100M-1B', 'Extra Large': '>1B'}
+POPULATION_BINS = [0, 1e6, 1e7, 5e7, 1e8, 1e9, 2e10]
 
 
 def plotly_figure(df_data, column, countries, title=''):
@@ -50,8 +52,7 @@ def load_data():
     df = pd.read_csv(URL)
     df['Active_new_week'] = df.groupby('location')['new_cases'].transform(lambda x: x.rolling(window=7).sum().fillna(0))
     df['Incident_rate'] = (df.Active_new_week / df.population * 100000).fillna(0).astype(int)
-    population_bins = [0, 1e6, 1e7, 5e7, 1e8, 1e9, 2e10]
-    df['country_size'] = pd.cut(df['population'], bins=population_bins, labels=POPULATION_LABELS)
+    df['country_size'] = pd.cut(df['population'], bins=POPULATION_BINS, labels=POPULATION_LABELS.keys())
     df.fillna({'Incident_rate': 0}, inplace=True)
     df['date'] = pd.to_datetime(df['date'])
     return df
@@ -59,12 +60,14 @@ def load_data():
 
 # Sidebar
 st.sidebar.title("Filter options")
-# selected_sizes = {}
-# for i in POPULATION_LABELS:
-#     selected_sizes[i] = st.sidebar.checkbox(i, value=True)
-
+selected_sizes = {}
+with st.sidebar.expander("Population filter"):
+    for k, v in POPULATION_LABELS.items():
+        selected_sizes[k] = st.checkbox(k, value=False if k == 'Very small' else True, help=v)
+    # https://www.shanelynn.ie/pandas-drop-delete-dataframe-rows-columns/
+country_size_filter = [k for k, v in selected_sizes.items() if v == True]
 df = load_data()
-
+df = df[df.country_size.isin(country_size_filter)]
 
 df_world = df[df['continent'].isna() == True].copy()
 continents = list(df[df['continent'].isna() == True].location.unique())
@@ -75,20 +78,6 @@ all_countries = sorted(set(df.location))
 df_latest = df[df.date == df.date.max()].copy()
 df_latest['week_incidence_rank'] = df_latest['Incident_rate'].rank()
 
-
-analysis_types = {'new_cases': "New Cases",
-                  'Incident_rate': "Weekly Incident Rate",
-                  'total_cases': "Total Cases",
-                  'total_vaccinations': "Total Vaccinations",
-                  'icu_patients': "ICU Patients",
-                  'population': "Population",
-                  'total_deaths': "Total Deaths",
-                  'new_deaths_smoothed': "New Deaths"}
-
-analysis_type = st.sidebar.selectbox('Sort by',
-                                     (analysis_types.keys()),
-                                     index=0)
-records_number = st.sidebar.selectbox('Show data', ['All', '10', '25', '50', '100'], index=1)
 show_data = st.sidebar.checkbox("Show raw data")
 st.sidebar.text(f'Data last updated {last_update}')
 
@@ -164,7 +153,21 @@ if countries:
     colB.dataframe(
         df_latest[df.location.isin(countries)][
             ['location', 'Incident_rate', 'week_incidence_rank', 'new_cases_smoothed']])
-
+    analysis_types = {'new_cases': "New Cases",
+                      'Incident_rate': "Weekly Incident Rate",
+                      'total_cases': "Total Cases",
+                      'total_vaccinations': "Total Vaccinations",
+                      'icu_patients': "ICU Patients",
+                      'population': "Population",
+                      'total_deaths': "Total Deaths",
+                      'new_deaths_smoothed': "New Deaths"}
+    colY,colZ,colEmpty = st.columns([2,2,8])
+    analysis_type = colY.selectbox('Sort all charts by (desc)',
+                                 (analysis_types.keys()),
+                                 index=0)
+    records_number = colZ.selectbox('Show top countries', ['All', '10', '25', '50', '100'], index=1)
+    colEmpty.write('')
+    space(2)
     df_latest = df_latest.sort_values(by=[analysis_type], ascending=False)
     if records_number != 'All':
         df_latest = df_latest.head(int(records_number))
