@@ -91,9 +91,13 @@ col1.write('#### Development globally')
 dfw = df_world[df_world.location.isin(continents_selected)]
 col1.write("#### New Cases")
 col1.plotly_chart(px.line(dfw, x='date', y='new_cases_smoothed', color='location'), use_container_width=True)
-col1.write("#### Incident rate")
-col1.plotly_chart(px.line(dfw, x='date', y='Incident_rate', color='location'), use_container_width=True)
+
+# col1.write("#### Incident rate")
+# col1.plotly_chart(px.line(dfw, x='date', y='Incident_rate', color='location'), use_container_width=True)
+
 # col1.plotly_chart(px.line(df_world, x='date', y='new_cases_smoothed'),use_container_width=True)
+st.write("#### Cases by country size")
+st.plotly_chart(px.treemap(df_latest, path=[px.Constant('World'), 'country_size', 'location'], values='population', color='Incident_rate', color_continuous_scale='rdbu_r', color_continuous_midpoint=0), use_container_width=True)
 
 space(5, col2)
 col2.write("#### Countries with Incident Rate over 400")
