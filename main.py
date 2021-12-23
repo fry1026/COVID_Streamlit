@@ -1,5 +1,7 @@
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import streamlit as st
 from st_aggrid import AgGrid, DataReturnMode, GridUpdateMode, GridOptionsBuilder
 
@@ -7,6 +9,50 @@ st.set_page_config(layout="wide")
 POPULATION_LABELS = {'Very small': '<1M', 'Small': '1M-10M', 'Medium': '10M-50M', 'Large': '50M-100M',
                      'Very Large': '100M-1B', 'Extra Large': '>1B'}
 POPULATION_BINS = [0, 1e6, 1e7, 5e7, 1e8, 1e9, 2e10]
+transparent = 'rgba(0,0,0,0)'
+
+
+def country_details(df_data, country):
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+    df_data = df.query(f'location == "{country}"')[
+        ['date', 'total_cases', 'new_cases_smoothed', 'case_growth', 'case_growth_7d', 'case_growth_30d']]
+    df_data['change_color'] = df['case_growth_7d'].apply(lambda x: 'red' if x > 0 else 'green')
+
+    y1_up = 1.1 * (df_data.new_cases_smoothed.max())
+    y1_low = 1.1 * (df_data.new_cases_smoothed.max() / (df_data.case_growth_7d.max() / df_data.case_growth_7d.min()))
+    y2_up = 1.1 * (df_data.case_growth_7d.max())
+    y2_low = 1.1 * (df_data.case_growth_7d.min())
+
+    fig.update_yaxes(range=[y1_low, y1_up], secondary_y=True)
+    fig.update_yaxes(range=[y2_low, y2_up], secondary_y=False)
+
+    fig.update_layout(
+        showlegend=True,
+        paper_bgcolor='white',
+        plot_bgcolor='white',
+        hovermode='x'
+    )
+
+    # fig.add_trace(go.Bar(x=df_sg.date, y=df_sg.case_growth, name="trend (daily)"), secondary_y=True)
+    fig.add_trace(go.Scatter(x=df_data.date,
+                             y=df_data.new_cases_smoothed,
+                             name="New Cases",
+                             marker={'color': 'blue'},
+                             hovertemplate='New Cases: %{y:.0f}<extra></extra>'
+                             ), secondary_y=True)
+    fig.add_trace(go.Bar(
+        x=df_data.date,
+        y=df_data.case_growth_7d,
+        marker={'color': df_data.change_color},
+        name="Weekly % Change",
+        hovertemplate='Weekly Change: %{y:%.2f}<extra></extra>'
+    ), secondary_y=False)
+
+    # fig.add_trace((go.Scatter(x=df_data.date,
+    #                           y=df_data.case_growth_30d,
+    #                           name="Monthly % Change",
+    #                           hovertemplate='Monthly Change: %{y:%.2f}<extra></extra>')), secondary_y=False)
+    return fig
 
 
 def plotly_figure(df_data, column, countries, title=''):
@@ -53,6 +99,11 @@ def load_data():
     df['Active_new_week'] = df.groupby('location')['new_cases'].transform(lambda x: x.rolling(window=7).sum().fillna(0))
     df['Incident_rate'] = (df.Active_new_week / df.population * 100000).fillna(0).astype(int)
     df['country_size'] = pd.cut(df['population'], bins=POPULATION_BINS, labels=POPULATION_LABELS.keys())
+    df['case_growth'] = df.groupby('location')['new_cases_smoothed'].pct_change(periods=1).fillna(0)
+    df['case_growth_7d'] = df.groupby('location')['new_cases_smoothed'].pct_change(periods=7).fillna(0)
+    df['case_growth_7d_formatted'] = df.groupby('location')['new_cases_smoothed'].pct_change(periods=7).fillna(0).apply(
+        '{:.0%}'.format)
+    df['case_growth_30d'] = df.groupby('location')['new_cases_smoothed'].pct_change(periods=30).fillna(0)
     df.fillna({'Incident_rate': 0}, inplace=True)
     df['date'] = pd.to_datetime(df['date'])
     return df
@@ -85,45 +136,59 @@ st.sidebar.text(f'Data last updated {last_update}')
 st.header('Overview')
 st.subheader('1. World')
 continents_selected = st.multiselect('Continent', continents, ['World'])
-col1, col2 = st.columns([6, 3])
+col1, col2 = st.columns([6, 4])
 
 col1.write('#### Development globally')
 dfw = df_world[df_world.location.isin(continents_selected)]
 col1.write("#### New Cases")
-col1.plotly_chart(px.line(dfw, x='date', y='new_cases_smoothed', color='location'), use_container_width=True)
+transparent = 'rgba(0,0,0,0)'
+fig = make_subplots(specs=[[{"secondary_y": True}]])
+for c in continents_selected:
+    df_graph = df_world[df_world.location == c]
+    fig.add_trace(go.Line(x=df_graph.date, y=df_graph.new_cases_smoothed, name=f'New Cases {c}'), secondary_y=False)
+    fig.add_trace(go.Line(x=df_graph.date, y=df_graph.reproduction_rate, name=f'Reproduction rate {c}',
+                          line=dict(width=1, dash='dash')), secondary_y=True)
+fig.update_layout(
+    hovermode='x',
+    showlegend=True
+    # , title_text=str('Court Data for ' + str(year))
+    , paper_bgcolor=transparent
+    , plot_bgcolor=transparent
+)
+col1.plotly_chart(fig, use_container_width=True)
 
 # col1.write("#### Incident rate")
 # col1.plotly_chart(px.line(dfw, x='date', y='Incident_rate', color='location'), use_container_width=True)
 
 # col1.plotly_chart(px.line(df_world, x='date', y='new_cases_smoothed'),use_container_width=True)
 st.write("#### Cases by country size")
-st.plotly_chart(px.treemap(df_latest, path=[px.Constant('World'), 'country_size', 'location'], values='population', color='Incident_rate', color_continuous_scale='rdbu_r', color_continuous_midpoint=0), use_container_width=True)
-
-space(5, col2)
 col2.write("#### Countries with Incident Rate over 400")
+space(5, col2)
+
 with col2:
     df_table = df_latest[df_latest.Incident_rate >= 400][
-        ['location', 'Incident_rate', 'new_cases_smoothed']].sort_values(
+        ['location', 'Incident_rate', 'new_cases_smoothed', 'case_growth_7d_formatted']].sort_values(
         by=['Incident_rate'], ascending=False).copy()
     gb = GridOptionsBuilder.from_dataframe(df_table)
     # gb.configure_selection(selection_mode="multiple", use_checkbox=True)
     gb.configure_pagination()
     grid_options = gb.build()
     selected_data = AgGrid(df_table, gridOptions=grid_options, update_mode=GridUpdateMode.SELECTION_CHANGED)
-    # AgGrid(df_latest[['location', 'Incident_rate', 'new_cases']].sort_values(
-    #     by=['Incident_rate'],
-    #     ascending=False).head(10))
-# col2.table(
-#     df_latest[['location', 'weekly_incidence_per_100k_pop', 'new_cases']].sort_values(
-#         by=['weekly_incidence_per_100k_pop'],
-#         ascending=False).head(10))
+col1, col2 = st.columns(2)
+col1.plotly_chart(px.treemap(df_latest, path=[px.Constant('World'), 'country_size', 'location'], values='population',
+                             color='Incident_rate', color_continuous_scale='rdbu_r', color_continuous_midpoint=0),
+                  use_container_width=True)
+col2.plotly_chart(px.treemap(df_latest, path=[px.Constant('World'), 'continent', 'location'], values='population',
+                             color='Incident_rate', color_continuous_scale='rdbu_r', color_continuous_midpoint=0),
+                  use_container_width=True)
 
 st.write('***')
 st.subheader(f'2. Country View')
 i = [i for i, e in enumerate(all_countries) if e == 'Singapore'][0]
 country = st.selectbox('Filter to:', all_countries, index=i)
-df_c = df[df.location == country]
-st.plotly_chart(px.line(df_c, x=df_c.date, y=df_c.new_cases, ))
+# df_c = df[df.location == country]
+# st.plotly_chart(px.line(df_c, x=df_c.date, y=df_c.new_cases_smoothed, ))
+st.plotly_chart(country_details(df, country), use_container_width=True)
 
 st.write('***')
 st.subheader("3. Development of Cases")
@@ -155,43 +220,58 @@ if countries:
     colA.plotly_chart(fig, use_container_width=True)
     colB.write('#### Country Incident Rate and Ranking')
     colB.dataframe(
-        df_latest[df.location.isin(countries)][
+        df_latest[df_latest.location.isin(countries)][
             ['location', 'Incident_rate', 'week_incidence_rank', 'new_cases_smoothed']])
     analysis_types = {'new_cases': "New Cases",
                       'Incident_rate': "Weekly Incident Rate",
+                      # 'case_growth': 'Growth rate of cases',
                       'total_cases': "Total Cases",
-                      'total_vaccinations': "Total Vaccinations",
-                      'icu_patients': "ICU Patients",
+                      'case_growth_7d': 'Weekly Case Growth',
                       'population': "Population",
                       'total_deaths': "Total Deaths",
-                      'new_deaths_smoothed': "New Deaths"}
-    colY,colZ,colEmpty = st.columns([2,2,8])
-    analysis_type = colY.selectbox('Sort all charts by (desc)',
-                                 (analysis_types.keys()),
-                                 index=0)
-    records_number = colZ.selectbox('Show top countries', ['All', '10', '25', '50', '100'], index=1)
-    colEmpty.write('')
-    space(2)
-    df_latest = df_latest.sort_values(by=[analysis_type], ascending=False)
-    if records_number != 'All':
-        df_latest = df_latest.head(int(records_number))
-
-    col1, col2 = st.columns(2)
-    for counter, (key, value) in enumerate(analysis_types.items()):
+                      'new_deaths_smoothed': "New Deaths",
+                      'total_vaccinations': "Total Vaccinations",
+                      'icu_patients': "ICU Patients",
+                      }
+    df_countries_selected = df_latest[df_latest.location.isin(countries)]
+    st.write('#### Total Cases and Weekly Trend')
+    col1, col2, col3 = st.columns(3)
+    for counter, (key, row) in enumerate(df_countries_selected.iterrows()):
         if counter % 2 == 0:
-            col1.plotly_chart(plotly_figure(df_latest, key, countries, value), use_container_width=True)
+            col1.metric(row['location'], row['new_cases_smoothed'], row['case_growth_7d_formatted'])
+        elif counter % 3 == 0:
+            col2.metric(row['location'], row['new_cases_smoothed'], row['case_growth_7d_formatted'])
         else:
-            col2.plotly_chart(plotly_figure(df_latest, key, countries, value), use_container_width=True)
+            col3.metric(row['location'], row['new_cases_smoothed'], row['case_growth_7d_formatted'])
+space(3)
+colY, colZ, colEmpty = st.columns([2, 2, 8])
+analysis_type = colY.selectbox('Sort all charts by (desc)',
+                               (analysis_types.keys()),
+                               index=0)
+records_number = colZ.selectbox('Show top countries', ['All', '10', '25', '50', '100'], index=1)
+colEmpty.write('')
+space(2)
+df_latest = df_latest.sort_values(by=[analysis_type], ascending=False)
+if records_number != 'All':
+    df_latest = df_latest.head(int(records_number))
+
+col1, col2 = st.columns(2)
+for counter, (key, value) in enumerate(analysis_types.items()):
+    if counter % 2 == 0:
+        col1.plotly_chart(plotly_figure(df_latest, key, countries, value), use_container_width=True)
+    else:
+        col2.plotly_chart(plotly_figure(df_latest, key, countries, value), use_container_width=True)
 
 st.write('***')
 
 # https://towardsdatascience.com/7-reasons-why-you-should-use-the-streamlit-aggrid-component-2d9a2b6e32f0
+latest = False
 if show_data:
     latest = st.checkbox("Show latest day only", value=True)
     st.subheader("Detailed Data")
     if latest:
         df_grid = df_latest.copy()
-        # st.write(selected_data)
+
     else:
         df_grid = dff.copy()
     gb = GridOptionsBuilder.from_dataframe(df_grid)
@@ -201,3 +281,4 @@ if show_data:
     grid_options = gb.build()
     selected_data = AgGrid(df_grid, gridOptions=grid_options, enable_enterprise_modules=True,
                            update_mode=GridUpdateMode.SELECTION_CHANGED)
+    # st.write(selected_data)
