@@ -10,10 +10,11 @@ st.set_page_config(layout="wide")
 POPULATION_LABELS = {'Very small': '<1M', 'Small': '1M-10M', 'Medium': '10M-50M', 'Large': '50M-100M',
                      'Very Large': '100M-1B', 'Extra Large': '>1B'}
 POPULATION_BINS = [0, 1e6, 1e7, 5e7, 1e8, 1e9, 2e10]
-transparent = 'rgba(0,0,0,0)'
-W_COL = 4
+TRANSPARENT_COLOR = 'rgba(0,0,0,0)'
+NUMBER_OF_COLUMNS_IN_CARD_GRID = 4
 
-def bs_card2(country, cases, trend_value, trend_value_formatted):
+
+def bootstrap_card(country, cases, trend_value, trend_value_formatted):
     return components.html(f"""
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
     <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
@@ -164,7 +165,7 @@ col1, col2 = st.columns([6, 4])
 col1.write('#### Development globally')
 dfw = df_world[df_world.location.isin(continents_selected)]
 col1.write("#### New Cases")
-transparent = 'rgba(0,0,0,0)'
+TRANSPARENT_COLOR = 'rgba(0,0,0,0)'
 fig = make_subplots(specs=[[{"secondary_y": True}]])
 for c in continents_selected:
     df_graph = df_world[df_world.location == c]
@@ -175,15 +176,11 @@ fig.update_layout(
     hovermode='x',
     showlegend=True
     # , title_text=str('Court Data for ' + str(year))
-    , paper_bgcolor=transparent
-    , plot_bgcolor=transparent
+    , paper_bgcolor=TRANSPARENT_COLOR
+    , plot_bgcolor=TRANSPARENT_COLOR
 )
 col1.plotly_chart(fig, use_container_width=True)
 
-# col1.write("#### Incident rate")
-# col1.plotly_chart(px.line(dfw, x='date', y='Incident_rate', color='location'), use_container_width=True)
-
-# col1.plotly_chart(px.line(df_world, x='date', y='new_cases_smoothed'),use_container_width=True)
 st.write("#### Cases by country size")
 col2.write("#### Countries with Incident Rate over 400")
 space(5, col2)
@@ -257,15 +254,16 @@ if countries:
                       'icu_patients': "ICU Patients",
                       }
     df_countries_selected = df_latest[df_latest.location.isin(countries)]
-    st.write('#### Details by country')
+    st.write('#### Details by Country')
 
     ncol = len(df_countries_selected)
     cols = st.columns(ncol)
 
     for i, (key, row) in enumerate(df_countries_selected.iterrows()):
-        col = cols[i % W_COL]
+        col = cols[i % NUMBER_OF_COLUMNS_IN_CARD_GRID]
         with col:
-            bs_card2(row['location'], row['new_cases_smoothed'], row['case_growth_7d'],row['case_growth_7d_formatted'] )
+            bootstrap_card(row['location'], row['new_cases_smoothed'], row['case_growth_7d'],
+                           row['case_growth_7d_formatted'])
 
 space(2)
 colY, colZ, colEmpty = st.columns([2, 2, 8])
