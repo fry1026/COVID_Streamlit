@@ -5,6 +5,7 @@ from plotly.subplots import make_subplots
 import streamlit as st
 from st_aggrid import AgGrid, DataReturnMode, GridUpdateMode, GridOptionsBuilder
 import streamlit.components.v1 as components
+import country_converter as coco
 
 st.set_page_config(layout="wide")
 POPULATION_LABELS = {'Very small': '<1M', 'Small': '1M-10M', 'Medium': '10M-50M', 'Large': '50M-100M',
@@ -27,21 +28,23 @@ ANALYSIS_TYPES = {'new_cases': "New Cases",
 
 
 #### Helper functions ####
-def bootstrap_card(country, cases, trend_value, trend_value_formatted):
+def bootstrap_card(country, cases, trend_value, trend_value_formatted, country_code):
     return components.html(f"""
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
     <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
 
         <div class="card">
-          <div class="card-header">
-            {country}
+          <div class="card-header" style="white-space:nowrap">
+            <div> <img src="https://raw.githubusercontent.com/lipis/flag-icons/main/flags/4x3/{country_code}.svg" height="20" alt="test image" align="style="display:inline;"/>
+            <div style="display:inline; white-space:nowrap;">{ country}</div>
+            </div>
           </div>
         <div class="card-body">
         <h5 class="card-title">{cases} <sub>new cases</sub></h5>
 
         {'<p> <span style="color:red">' if trend_value > 0 else '<span style="color:green">'} <b>{trend_value_formatted}</b> {'&#8593;' if trend_value > 0 else '&#8595;'} </span><sub>weekly change</sub></p>
-
+        
       </div>
     </div>
   </div>
@@ -167,7 +170,10 @@ df_latest = df[df.date == df.date.max()].copy()
 df_latest['week_incidence_rank'] = df_latest['Incident_rate'].rank()
 
 show_data = st.sidebar.checkbox("Show raw data")
-st.sidebar.text(f'Data last updated {last_update}')
+st.sidebar.markdown('***')
+st.sidebar.markdown(f'Data last updated {last_update}')
+st.sidebar.markdown('Source data from [OWID](https://github.com/owid/covid-19-data/tree/master/public/data)')
+st.sidebar.markdown('Source code on [GitHub](https://github.com/fry1026/COVID_Streamlit)')
 
 #### Main Page ####
 st.header('Overview')
@@ -269,7 +275,7 @@ if countries:
         col = cols[i % NUMBER_OF_COLUMNS_IN_CARD_GRID]
         with col:
             bootstrap_card(row['location'], f"{int(row['new_cases_smoothed']):,}", row['case_growth_7d'],
-                           row['case_growth_7d_formatted'])
+                           row['case_growth_7d_formatted'], coco.convert(names=row['iso_code'], to='ISO2', not_found='de').lower())
 
 space(2)
 colY, colZ, colEmpty = st.columns([2, 2, 8])
