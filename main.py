@@ -13,7 +13,20 @@ POPULATION_BINS = [0, 1e6, 1e7, 5e7, 1e8, 1e9, 2e10]
 TRANSPARENT_COLOR = 'rgba(0,0,0,0)'
 NUMBER_OF_COLUMNS_IN_CARD_GRID = 4
 
+ANALYSIS_TYPES = {'new_cases': "New Cases",
+                  'Incident_rate': "Weekly Incident Rate",
+                  # 'case_growth': 'Growth rate of cases',
+                  'total_cases': "Total Cases",
+                  'case_growth_7d': 'Weekly Case Growth',
+                  'population': "Population",
+                  'total_deaths': "Total Deaths",
+                  'new_deaths_smoothed': "New Deaths",
+                  'total_vaccinations': "Total Vaccinations",
+                  'icu_patients': "ICU Patients",
+                  }
 
+
+#### Helper functions ####
 def bootstrap_card(country, cases, trend_value, trend_value_formatted):
     return components.html(f"""
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
@@ -27,8 +40,7 @@ def bootstrap_card(country, cases, trend_value, trend_value_formatted):
         <div class="card-body">
         <h5 class="card-title">{cases} <sub>new cases</sub></h5>
 
-
-        {'<p style="color:red">' if trend_value > 0 else '<p style="color:green">'} {trend_value_formatted}  {'&#8593;' if trend_value > 0 else '&#8595;'}</p>
+        {'<p> <span style="color:red">' if trend_value > 0 else '<span style="color:green">'} <b>{trend_value_formatted}</b> {'&#8593;' if trend_value > 0 else '&#8595;'} </span><sub>weekly change</sub></p>
 
       </div>
     </div>
@@ -36,7 +48,7 @@ def bootstrap_card(country, cases, trend_value, trend_value_formatted):
         """, height=250)
 
 
-def country_details(df_data, country):
+def country_details_plot(df_data, country):
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     df_data = df.query(f'location == "{country}"')[
         ['date', 'total_cases', 'new_cases_smoothed', 'case_growth', 'case_growth_7d', 'case_growth_30d']]
@@ -116,6 +128,7 @@ def space(n, col=None):
             st.write('\n')
 
 
+#### Data loading and transformation ####
 @st.cache
 def load_data():
     URL = 'https://covid.ourworldindata.org/data/owid-covid-data.csv'
@@ -133,7 +146,7 @@ def load_data():
     return df
 
 
-# Sidebar
+#### Sidebar ####
 st.sidebar.title("Filter options")
 selected_sizes = {}
 with st.sidebar.expander("Population filter"):
@@ -156,8 +169,9 @@ df_latest['week_incidence_rank'] = df_latest['Incident_rate'].rank()
 show_data = st.sidebar.checkbox("Show raw data")
 st.sidebar.text(f'Data last updated {last_update}')
 
-# Main Page
+#### Main Page ####
 st.header('Overview')
+#### 1. World ####
 st.subheader('1. World')
 continents_selected = st.multiselect('Continent', continents, ['World'])
 col1, col2 = st.columns([6, 4])
@@ -169,9 +183,9 @@ TRANSPARENT_COLOR = 'rgba(0,0,0,0)'
 fig = make_subplots(specs=[[{"secondary_y": True}]])
 for c in continents_selected:
     df_graph = df_world[df_world.location == c]
-    fig.add_trace(go.Line(x=df_graph.date, y=df_graph.new_cases_smoothed, name=f'New Cases {c}'), secondary_y=False)
-    fig.add_trace(go.Line(x=df_graph.date, y=df_graph.reproduction_rate, name=f'Reproduction rate {c}',
-                          line=dict(width=1, dash='dash')), secondary_y=True)
+    fig.add_trace(go.Scatter(x=df_graph.date, y=df_graph.new_cases_smoothed, name=f'New Cases {c}'), secondary_y=False)
+    fig.add_trace(go.Scatter(x=df_graph.date, y=df_graph.reproduction_rate, name=f'Reproduction rate {c}',
+                             line=dict(width=1, dash='dash')), secondary_y=True)
 fig.update_layout(
     hovermode='x',
     showlegend=True
@@ -201,16 +215,18 @@ col1.plotly_chart(px.treemap(df_latest, path=[px.Constant('World'), 'country_siz
 col2.plotly_chart(px.treemap(df_latest, path=[px.Constant('World'), 'continent', 'location'], values='population',
                              color='Incident_rate', color_continuous_scale='rdbu_r', color_continuous_midpoint=0),
                   use_container_width=True)
-
 st.write('***')
+
+#### 2. Country View ####
 st.subheader(f'2. Country View')
 i = [i for i, e in enumerate(all_countries) if e == 'Singapore'][0]
 country = st.selectbox('Filter to:', all_countries, index=i)
 # df_c = df[df.location == country]
 # st.plotly_chart(px.line(df_c, x=df_c.date, y=df_c.new_cases_smoothed, ))
-st.plotly_chart(country_details(df, country), use_container_width=True)
-
+st.plotly_chart(country_details_plot(df, country), use_container_width=True)
 st.write('***')
+
+#### 3. Development of Cases ####
 st.subheader("3. Development of Cases")
 
 countries = st.multiselect("Select countries", all_countries,
@@ -242,17 +258,7 @@ if countries:
     colB.dataframe(
         df_latest[df_latest.location.isin(countries)][
             ['location', 'Incident_rate', 'week_incidence_rank', 'new_cases_smoothed']])
-    analysis_types = {'new_cases': "New Cases",
-                      'Incident_rate': "Weekly Incident Rate",
-                      # 'case_growth': 'Growth rate of cases',
-                      'total_cases': "Total Cases",
-                      'case_growth_7d': 'Weekly Case Growth',
-                      'population': "Population",
-                      'total_deaths': "Total Deaths",
-                      'new_deaths_smoothed': "New Deaths",
-                      'total_vaccinations': "Total Vaccinations",
-                      'icu_patients': "ICU Patients",
-                      }
+
     df_countries_selected = df_latest[df_latest.location.isin(countries)]
     st.write('#### Details by Country')
 
@@ -262,13 +268,13 @@ if countries:
     for i, (key, row) in enumerate(df_countries_selected.iterrows()):
         col = cols[i % NUMBER_OF_COLUMNS_IN_CARD_GRID]
         with col:
-            bootstrap_card(row['location'], row['new_cases_smoothed'], row['case_growth_7d'],
+            bootstrap_card(row['location'], f"{int(row['new_cases_smoothed']):,}", row['case_growth_7d'],
                            row['case_growth_7d_formatted'])
 
 space(2)
 colY, colZ, colEmpty = st.columns([2, 2, 8])
 analysis_type = colY.selectbox('Sort all charts by (desc)',
-                               (analysis_types.keys()),
+                               (ANALYSIS_TYPES.keys()),
                                index=0)
 records_number = colZ.selectbox('Show top countries', ['All', '10', '25', '50', '100'], index=1)
 colEmpty.write('')
@@ -278,14 +284,14 @@ if records_number != 'All':
     df_latest = df_latest.head(int(records_number))
 
 col1, col2 = st.columns(2)
-for counter, (key, value) in enumerate(analysis_types.items()):
+for counter, (key, value) in enumerate(ANALYSIS_TYPES.items()):
     if counter % 2 == 0:
         col1.plotly_chart(plotly_figure(df_latest, key, countries, value), use_container_width=True)
     else:
         col2.plotly_chart(plotly_figure(df_latest, key, countries, value), use_container_width=True)
 
 st.write('***')
-
+#### Detailed data table ####
 latest = False
 if show_data:
     latest = st.checkbox("Show latest day only", value=True)
