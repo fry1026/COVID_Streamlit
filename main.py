@@ -4,12 +4,35 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import streamlit as st
 from st_aggrid import AgGrid, DataReturnMode, GridUpdateMode, GridOptionsBuilder
+import streamlit.components.v1 as components
 
 st.set_page_config(layout="wide")
 POPULATION_LABELS = {'Very small': '<1M', 'Small': '1M-10M', 'Medium': '10M-50M', 'Large': '50M-100M',
                      'Very Large': '100M-1B', 'Extra Large': '>1B'}
 POPULATION_BINS = [0, 1e6, 1e7, 5e7, 1e8, 1e9, 2e10]
 transparent = 'rgba(0,0,0,0)'
+W_COL = 4
+
+def bs_card2(country, cases, trend_value, trend_value_formatted):
+    return components.html(f"""
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+
+        <div class="card">
+          <div class="card-header">
+            {country}
+          </div>
+        <div class="card-body">
+        <h5 class="card-title">{cases} <sub>new cases</sub></h5>
+
+
+        {'<p style="color:red">' if trend_value > 0 else '<p style="color:green">'} {trend_value_formatted}  {'&#8593;' if trend_value > 0 else '&#8595;'}</p>
+
+      </div>
+    </div>
+  </div>
+        """, height=250)
 
 
 def country_details(df_data, country):
@@ -234,16 +257,17 @@ if countries:
                       'icu_patients': "ICU Patients",
                       }
     df_countries_selected = df_latest[df_latest.location.isin(countries)]
-    st.write('#### Total Cases and Weekly Trend')
-    col1, col2, col3 = st.columns(3)
-    for counter, (key, row) in enumerate(df_countries_selected.iterrows()):
-        if counter % 2 == 0:
-            col1.metric(row['location'], row['new_cases_smoothed'], row['case_growth_7d_formatted'])
-        elif counter % 3 == 0:
-            col2.metric(row['location'], row['new_cases_smoothed'], row['case_growth_7d_formatted'])
-        else:
-            col3.metric(row['location'], row['new_cases_smoothed'], row['case_growth_7d_formatted'])
-space(3)
+    st.write('#### Details by country')
+
+    ncol = len(df_countries_selected)
+    cols = st.columns(ncol)
+
+    for i, (key, row) in enumerate(df_countries_selected.iterrows()):
+        col = cols[i % W_COL]
+        with col:
+            bs_card2(row['location'], row['new_cases_smoothed'], row['case_growth_7d'],row['case_growth_7d_formatted'] )
+
+space(2)
 colY, colZ, colEmpty = st.columns([2, 2, 8])
 analysis_type = colY.selectbox('Sort all charts by (desc)',
                                (analysis_types.keys()),
@@ -264,7 +288,6 @@ for counter, (key, value) in enumerate(analysis_types.items()):
 
 st.write('***')
 
-# https://towardsdatascience.com/7-reasons-why-you-should-use-the-streamlit-aggrid-component-2d9a2b6e32f0
 latest = False
 if show_data:
     latest = st.checkbox("Show latest day only", value=True)
