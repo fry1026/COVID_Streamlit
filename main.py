@@ -132,7 +132,7 @@ def space(n, col=None):
 
 
 #### Data loading and transformation ####
-@st.cache
+@st.cache(ttl=60*60) # cache is valid for 1 hour
 def load_data():
     URL = 'https://covid.ourworldindata.org/data/owid-covid-data.csv'
     df = pd.read_csv(URL)
