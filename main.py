@@ -28,7 +28,7 @@ ANALYSIS_TYPES = {'new_cases': "New Cases",
 
 
 #### Helper functions ####
-def bootstrap_card(country, cases, trend_value, trend_value_formatted, country_code):
+def bootstrap_card(country, cases, trend_value, trend_value_formatted, country_code, population, incident_rate=0):
     return components.html(f"""
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
     <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
@@ -37,14 +37,15 @@ def bootstrap_card(country, cases, trend_value, trend_value_formatted, country_c
         <div class="card">
           <div class="card-header" style="white-space:nowrap">
             <div> <img src="https://raw.githubusercontent.com/lipis/flag-icons/main/flags/4x3/{country_code}.svg" height="20" alt="test image" align="style="display:inline;"/>
-            <div style="display:inline; white-space:nowrap;">{ country}</div>
+            <div style="display:inline; white-space:nowrap;">{country}</div>
             </div>
           </div>
         <div class="card-body">
         <h5 class="card-title">{cases} <sub>new cases</sub></h5>
 
         {'<p> <span style="color:red">' if trend_value > 0 else '<span style="color:green">'} <b>{trend_value_formatted}</b> {'&#8593;' if trend_value > 0 else '&#8595;'} </span><sub>weekly change</sub></p>
-        
+        <span class="card-title">{int(population):,} Population</span>
+        <span class="card-title">{int(incident_rate)} Incident rate</span>
       </div>
     </div>
   </div>
@@ -132,7 +133,7 @@ def space(n, col=None):
 
 
 #### Data loading and transformation ####
-@st.cache(ttl=60*60) # cache is valid for 1 hour
+@st.cache(ttl=60 * 60)  # cache is valid for 1 hour
 def load_data():
     URL = 'https://covid.ourworldindata.org/data/owid-covid-data.csv'
     df = pd.read_csv(URL)
@@ -275,7 +276,8 @@ if countries:
         col = cols[i % NUMBER_OF_COLUMNS_IN_CARD_GRID]
         with col:
             bootstrap_card(row['location'], f"{int(row['new_cases_smoothed']):,}", row['case_growth_7d'],
-                           row['case_growth_7d_formatted'], coco.convert(names=row['iso_code'], to='ISO2', not_found='de').lower())
+                           row['case_growth_7d_formatted'],
+                           coco.convert(names=row['iso_code'], to='ISO2', not_found='de').lower(), row['population'], row['Incident_rate'])
 
 space(2)
 colY, colZ, colEmpty = st.columns([2, 2, 8])
