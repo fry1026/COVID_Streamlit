@@ -41,7 +41,7 @@ def bootstrap_card(country, cases, trend_value, trend_value_formatted, country_c
             </div>
           </div>
         <div class="card-body">
-        <h5 class="card-title">{cases} <sub>new cases</sub></h5>
+        <h5 class="card-title">{cases} <sub>daily new cases (smoothed)</sub></h5>
 
         {'<p> <span style="color:red">' if trend_value > 0 else '<span style="color:green">'} <b>{trend_value_formatted}</b> {'&#8593;' if trend_value > 0 else '&#8595;'} </span><sub>weekly change</sub></p>
         <span class="card-title">{int(population):,} Population</span>
