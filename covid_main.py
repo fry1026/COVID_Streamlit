@@ -81,16 +81,12 @@ st.subheader('1. World')
 continents_selected = st.multiselect('Continent', continents, ['World'])
 col1, col2 = st.columns([6, 4])
 
-col1.write('#### Development globally')
 dfw = df_world[df_world.location.isin(continents_selected)]
-col1.write("#### New Cases")
-
+# col1.write("#### New Cases")
 col1.plotly_chart(graph_global_case_development(dfw, continents_selected), use_container_width=True)
 
-st.write("#### Cases by country size")
+space(2, col2)
 col2.write("#### Countries with Incident Rate over 400")
-space(5, col2)
-
 with col2:
     df_table = df_latest[df_latest.Incident_rate >= 400][
         ['location', 'Incident_rate', 'new_cases_smoothed', 'case_growth_7d_formatted']].sort_values(
@@ -100,6 +96,8 @@ with col2:
     gb.configure_pagination()
     grid_options = gb.build()
     selected_data = AgGrid(df_table, gridOptions=grid_options, update_mode=GridUpdateMode.SELECTION_CHANGED)
+
+st.write("#### Incident rate by country size")
 col1, col2 = st.columns(2)
 col1.plotly_chart(px.treemap(df_latest, path=[px.Constant('World'), 'country_size', 'location'], values='population',
                              color='Incident_rate', color_continuous_scale='rdbu_r', color_continuous_midpoint=0),

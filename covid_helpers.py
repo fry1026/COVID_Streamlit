@@ -16,6 +16,16 @@ def graph_global_case_development(df_world, continents_selected):
         fig.add_trace(go.Scatter(x=df_graph.date, y=df_graph.reproduction_rate, name=f'Reproduction rate {c}',
                                  line=dict(width=1, dash='dash')), secondary_y=True)
     fig.update_layout(
+        title=dict(
+            text='<b>New cases</b>',
+            # x=0.5,
+            y=0.86,
+            font=dict(
+                family="arial", #
+                size=22,
+                # color='#000000'
+            )
+        ),
         hovermode='x',
         showlegend=True
         # , title_text=str('Court Data for ' + str(year))
