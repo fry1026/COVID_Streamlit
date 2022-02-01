@@ -21,7 +21,7 @@ def graph_global_case_development(df_world, continents_selected):
             # x=0.5,
             y=0.86,
             font=dict(
-                family="arial", #
+                family="arial",  #
                 size=22,
                 # color='#000000'
             )
@@ -86,7 +86,7 @@ def bootstrap_card(country, cases, trend_value, trend_value_formatted, country_c
 def graph_cases_and_change_by_country(df_data, country):
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     df_data = df_data.query(f'location == "{country}"')[
-        ['date', 'total_cases', 'new_cases_smoothed', 'case_growth', 'case_growth_7d', 'case_growth_30d']]
+        ['date', 'total_cases', 'new_cases_smoothed', 'new_cases', 'case_growth', 'case_growth_7d', 'case_growth_30d']]
     df_data['change_color'] = df_data['case_growth_7d'].apply(lambda x: 'red' if x > 0 else 'green')
 
     y1_up = 1.1 * (df_data.new_cases_smoothed.max())
@@ -107,10 +107,18 @@ def graph_cases_and_change_by_country(df_data, country):
     # fig.add_trace(go.Bar(x=df_sg.date, y=df_sg.case_growth, name="trend (daily)"), secondary_y=True)
     fig.add_trace(go.Scatter(x=df_data.date,
                              y=df_data.new_cases_smoothed,
-                             name="New Cases",
+                             name="New Cases (smoothed)",
                              marker={'color': 'blue'},
                              hovertemplate='New Cases: %{y:.0f}<extra></extra>'
                              ), secondary_y=True)
+
+    fig.add_trace(go.Scatter(x=df_data.date,
+                             y=df_data.new_cases,
+                             mode='markers',
+                             name="New Cases",
+                             marker=dict(size=2, line=dict(width=0.5, color='red'))
+                             ), secondary_y=True)
+
     fig.add_trace(go.Bar(
         x=df_data.date,
         y=df_data.case_growth_7d,
